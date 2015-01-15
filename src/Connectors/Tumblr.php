@@ -25,8 +25,6 @@ class Tumblr extends AbstractConnector
         return $result;
     }
     
-    public function 
-
     public function post(Post $post)
     {
         $path = '/statuses/update.json';
@@ -40,7 +38,7 @@ class Tumblr extends AbstractConnector
         $response = new Response;
         $response->setRawResponse(json_encode($result));
         $result_json = json_decode($result);
-        $response->setProvider('Twitter');
+        $response->setProvider('Tumblr');
         $response->setPostId($result_json->id_str);
 
         return $response;
