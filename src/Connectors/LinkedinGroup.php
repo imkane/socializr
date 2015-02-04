@@ -2,45 +2,63 @@
 
 namespace Borfast\Socializr\Connectors;
 
+use Borfast\Socializr\Exceptions\LinkedinForbiddenException;
 use Borfast\Socializr\Exceptions\LinkedinPostingException;
-use Exception;
-use GuzzleHttp\Client as Guzzle;
-
 use Borfast\Socializr\Post;
 use Borfast\Socializr\Profile;
 use Borfast\Socializr\Response;
+use GuzzleHttp\Client as Guzzle;
+use GuzzleHttp\Exception\ClientException;
 
 class LinkedinGroup extends AbstractConnector
 {
     public static $provider = 'linkedin';
 
+    /**
+     * @param Post $post
+     * @return Response
+     * @throws LinkedinForbiddenException
+     * @throws LinkedinPostingException
+     */
     public function post(Post $post)
     {
         $group_id = $post->options['group_id'];
         $token = $this->service->getStorage()->retrieveAccessToken('Linkedin')->getAccessToken();
         $path = '/groups/'.$group_id.'/posts?format=json&oauth2_access_token='.$token;
-        $params = array(
+        $params = [
             'title' => $post->title,
             'summary' => '',
             'content' => [
                 'title' => $post->title . ' @',
                 'submitted-url' => $post->url,
-                'submitted-image-url' => $post->image_url,
                 'description' => $post->body,
             ],
-        );
+        ];
+
+        // Add media files, if they were sent.
+        if (isset($post->media) && array_key_exists(0, $post->media)) {
+            $params['content']['submitted-image-url'] = $post->media[0];
+        }
+
         $params = json_encode($params);
 
-
-
-        // Linkedin API requires the Content-Type header set to application/json
         $url = 'https://api.linkedin.com/v1'.$path;
+        // Linkedin API requires the Content-Type header set to application/json
         $options = [
             'headers' => ['Content-Type' => 'application/json'],
             'body' => $params
         ];
+
         $client = new Guzzle();
-        $result = $client->post($url, $options);
+        try {
+            $result = $client->post($url, $options);
+        } catch (ClientException $e) {
+            if ($e->getCode() == 403) {
+                throw new LinkedinForbiddenException($e);
+            } else {
+                throw $e;
+            }
+        }
 
         if ($result->getStatusCode() > 300) {
             $msg = "Error posting to Linkedin group. Error code from Linkedin: %s. Error message from Linkedin: %s";
@@ -64,13 +82,16 @@ class LinkedinGroup extends AbstractConnector
         // So we need to make another API call to fetch the correct URL, because
         // it's not even possible to generate it manually.
 
-        $location = $result->getHeader('location');
-        $url = $location.':(id,site-group-post-url)?format=json&oauth2_access_token='.$token;
-        $result = $client->get($url);
-        $json = $result->json();
+        // Moderated groups don't return a 'location' header, so let's skip it if that's the case.
+        $location = $result->getHeader('Location');
+        if (!empty($location)) {
+            $url = $location . ':(id,site-group-post-url)?format=json&oauth2_access_token=' . $token;
+            $result = $client->get($url);
+            $json = $result->json();
 
-        $post_url = str_replace('api.linkedin.com/v1', 'www.linkedin.com', $json['siteGroupPostUrl']);
-        $response->setPostUrl($post_url);
+            $post_url = str_replace('api.linkedin.com/v1', 'www.linkedin.com', $json['siteGroupPostUrl']);
+            $response->setPostUrl($post_url);
+        }
 
         return $response;
     }

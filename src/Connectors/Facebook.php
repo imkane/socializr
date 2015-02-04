@@ -8,6 +8,7 @@ use Borfast\Socializr\Page;
 use Borfast\Socializr\Group;
 use Borfast\Socializr\Response;
 use Borfast\Socializr\Connectors\AbstractConnector;
+use Exception;
 use OAuth\Common\Storage\TokenStorageInterface;
 use OAuth\Common\Token\Exception\ExpiredTokenException;
 use OAuth\Common\Http\Uri\Uri;
@@ -42,7 +43,7 @@ class Facebook extends AbstractConnector
             if ($json_result['error']['type'] == 'OAuthException') {
                 throw new ExpiredTokenException($msg);
             } else {
-                throw new \Exception($msg);
+                throw new Exception($msg);
             }
 
         }
@@ -53,14 +54,35 @@ class Facebook extends AbstractConnector
 
     public function post(Post $post)
     {
-        $path = '/'.$this->getUid().'/feed';
+        if (empty($post->media)) {
+            $path = '/'.$this->getUid().'/feed';
+
+            $msg  = $post->title;
+            $msg .= "\n\n";
+            $msg .= $post->body;
+
+            $params = [
+                'caption' => $post->title,
+                'description' => '',
+                'link' => $post->url,
+                'message' => $msg
+            ];
+        } else {
+            $path = '/'.$this->getUid().'/photos';
+
+            $msg  = $post->title;
+            $msg .= "\n\n";
+            $msg .= $post->body;
+            $msg .= "\n";
+            $msg .= $post->url;
+
+            $params = [
+                'url' => $post->media[0],
+                'message' => $msg
+            ];
+        }
+
         $method = 'POST';
-        $params = array(
-            'caption' => $post->title,
-            'description' => '',
-            'link' => $post->url,
-            'message' => $post->body,
-        );
 
         $result = $this->request($path, $method, $params);
 
@@ -69,7 +91,7 @@ class Facebook extends AbstractConnector
         // If there's no ID, the post didn't go through
         if (!isset($json_result['id'])) {
             $msg = "Unknown error posting to Facebook profile.";
-            throw new \Exception($msg, 1);
+            throw new Exception($msg, 1);
         }
 
         $response = new Response;

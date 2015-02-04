@@ -12,18 +12,13 @@
     "require": {
         "php": ">=5.4",
         "lusitanian/oauth": "dev-master",
-        "facebook/php-sdk": "dev-master",
-        "guzzlehttp/guzzle": "~4",
-        "tumblr/tumblr": "0.1.*"
+        "guzzlehttp/guzzle": "~4"
     },
     "require-dev": {
-        "phpunit/phpunit": "4.1.*",
+        "phpunit/phpunit": "~4",
         "mockery/mockery": "dev-master"
     },
     "autoload": {
-        "psr-0": {
-            "Requests\\": "vendor/rmccue/requests/library"
-        },
         "psr-4": {
             "Borfast\\Socializr\\": "src"
         }

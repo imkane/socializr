@@ -5,14 +5,11 @@ namespace Borfast\Socializr\Connectors;
 use Borfast\Socializr\Post;
 use Borfast\Socializr\Profile;
 use Borfast\Socializr\Response;
-use Borfast\Socializr\Connectors\AbstractConnector;
-use OAuth\Common\Storage\TokenStorageInterface;
-use OAuth\Common\Token\Exception\ExpiredTokenException;
 
 class Tumblr extends AbstractConnector
 {
     public static $provider = 'Tumblr';
-    public static $blog_host = 'dosocial';
+    public static $blog_host = 'dosocialtests';
 
     protected $user_id;
     protected $screen_name;
@@ -20,11 +17,11 @@ class Tumblr extends AbstractConnector
     public function request($path, $method = 'GET', $params = [], $headers = [])
     {
         $result = parent::request($path, $method, $params, $headers);
-        $json_result = json_decode($result, true);       
+        $json_result = json_decode($result, true);
 
         return $result;
     }
-    
+
     public function post(Post $post)
     {
         $path = '/statuses/update.json';
@@ -42,6 +39,20 @@ class Tumblr extends AbstractConnector
         $response->setPostId($result_json->id_str);
 
         return $response;
+    }
+
+
+    /**
+     * Tumblr needs an extra step for authentication before providing an
+     * authorization URL.
+     *
+     * @author Raúl Santos
+     */
+    public function getAuthorizationUri(array $params = [])
+    {
+        $token = $this->service->requestRequestToken();
+        $extra = ['oauth_token' => $token->getRequestToken()];
+        return parent::getAuthorizationUri($extra);
     }
 
 
